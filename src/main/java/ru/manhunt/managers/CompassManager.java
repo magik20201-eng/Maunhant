@@ -95,12 +95,29 @@ public class CompassManager implements Listener {
     private Location findNearestPortal(Player hunter, World targetWorld) {
         World hunterWorld = hunter.getWorld();
         Location hunterLoc = hunter.getLocation();
+        WorldManager worldManager = plugin.getWorldManager();
 
         Location nearestPortal = null;
         double nearestDistance = Double.MAX_VALUE;
 
-        if (targetWorld.getEnvironment() == World.Environment.NETHER ||
-            targetWorld.getEnvironment() == World.Environment.NORMAL) {
+        // Если цель в Аду, ищем портал в Незер
+        if (targetWorld.equals(worldManager.getNetherWorld())) {
+            for (int x = -100; x <= 100; x += 16) {
+                for (int z = -100; z <= 100; z += 16) {
+                    Location checkLoc = hunterLoc.clone().add(x, 0, z);
+                    if (isPortalNearby(checkLoc, Material.NETHER_PORTAL)) {
+                        double distance = checkLoc.distance(hunterLoc);
+                        if (distance < nearestDistance) {
+                            nearestDistance = distance;
+                            nearestPortal = checkLoc;
+                        }
+                    }
+                }
+            }
+        }
+        
+        // Если цель в обычном мире и охотник в Аду, ищем портал в Незер
+        if (targetWorld.equals(worldManager.getGameWorld()) && hunterWorld.equals(worldManager.getNetherWorld())) {
 
             for (int x = -100; x <= 100; x += 16) {
                 for (int z = -100; z <= 100; z += 16) {
@@ -116,7 +133,8 @@ public class CompassManager implements Listener {
             }
         }
 
-        if (targetWorld.getEnvironment() == World.Environment.THE_END) {
+        // Если цель в Крае, ищем портал Края
+        if (targetWorld.equals(worldManager.getEndWorld())) {
             for (int x = -100; x <= 100; x += 16) {
                 for (int z = -100; z <= 100; z += 16) {
                     Location checkLoc = hunterLoc.clone().add(x, 0, z);

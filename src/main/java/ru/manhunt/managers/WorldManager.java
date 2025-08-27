@@ -17,6 +17,8 @@ public class WorldManager {
     private final ManhuntPlugin plugin;
     private World lobbyWorld;
     private World gameWorld;
+    private World netherWorld;
+    private World endWorld;
     
     public WorldManager(ManhuntPlugin plugin) {
         this.plugin = plugin;
@@ -52,6 +54,8 @@ public class WorldManager {
     private void loadGameWorld() {
         // Генерируем новый случайный сид для каждой игры
         long newSeed = new Random().nextLong();
+        
+        // Создание обычного мира
         WorldCreator gameCreator = new WorldCreator("manhunt_game");
         gameCreator.seed(newSeed);
         gameWorld = gameCreator.createWorld();
@@ -62,6 +66,32 @@ public class WorldManager {
             gameWorld.setGameRule(GameRule.DO_IMMEDIATE_RESPAWN, true);
             gameWorld.setTime(6000); // Устанавливаем день
         }
+        
+        // Создание мира Ада с тем же сидом
+        WorldCreator netherCreator = new WorldCreator("manhunt_game_nether");
+        netherCreator.seed(newSeed);
+        netherCreator.environment(World.Environment.NETHER);
+        netherWorld = netherCreator.createWorld();
+        
+        if (netherWorld != null) {
+            netherWorld.setDifficulty(Difficulty.NORMAL);
+            netherWorld.setGameRule(GameRule.KEEP_INVENTORY, false);
+            netherWorld.setGameRule(GameRule.DO_IMMEDIATE_RESPAWN, true);
+        }
+        
+        // Создание мира Края с тем же сидом
+        WorldCreator endCreator = new WorldCreator("manhunt_game_the_end");
+        endCreator.seed(newSeed);
+        endCreator.environment(World.Environment.THE_END);
+        endWorld = endCreator.createWorld();
+        
+        if (endWorld != null) {
+            endWorld.setDifficulty(Difficulty.NORMAL);
+            endWorld.setGameRule(GameRule.KEEP_INVENTORY, false);
+            endWorld.setGameRule(GameRule.DO_IMMEDIATE_RESPAWN, true);
+        }
+        
+        plugin.getLogger().info("Созданы игровые миры с сидом: " + newSeed);
     }
     
     public void regenerateGameWorlds() {
@@ -69,16 +99,33 @@ public class WorldManager {
         
         // Сохраняем имена старых миров для удаления
         String oldGameWorldName = null;
+        String oldNetherWorldName = null;
+        String oldEndWorldName = null;
+        
         if (gameWorld != null) {
             oldGameWorldName = gameWorld.getName();
             Bukkit.unloadWorld(gameWorld, false);
         }
         
+        if (netherWorld != null) {
+            oldNetherWorldName = netherWorld.getName();
+            Bukkit.unloadWorld(netherWorld, false);
+        }
+        
+        if (endWorld != null) {
+            oldEndWorldName = endWorld.getName();
+            Bukkit.unloadWorld(endWorld, false);
+        }
+        
         // Полное удаление старых миров с диска
         if (oldGameWorldName != null) {
             deleteWorldFromDisk(oldGameWorldName);
-            deleteWorldFromDisk(oldGameWorldName + "_nether");
-            deleteWorldFromDisk(oldGameWorldName + "_the_end");
+        }
+        if (oldNetherWorldName != null) {
+            deleteWorldFromDisk(oldNetherWorldName);
+        }
+        if (oldEndWorldName != null) {
+            deleteWorldFromDisk(oldEndWorldName);
         }
         
         // Создание нового игрового мира с новым сидом
@@ -164,6 +211,14 @@ public class WorldManager {
     
     public World getGameWorld() {
         return gameWorld;
+    }
+    
+    public World getNetherWorld() {
+        return netherWorld;
+    }
+    
+    public World getEndWorld() {
+        return endWorld;
     }
     
     // Генератор пустого мира

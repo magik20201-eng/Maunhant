@@ -5,11 +5,13 @@ import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
+import org.bukkit.event.entity.EntityDeathEvent;
 import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.player.*;
 import org.bukkit.event.player.AsyncPlayerChatEvent;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.entity.EnderDragon;
 import ru.manhunt.ManhuntPlugin;
 import ru.manhunt.data.GamePlayer;
 import ru.manhunt.enums.PlayerRole;
@@ -36,6 +38,14 @@ public class PlayerListener implements Listener {
     public void onPlayerQuit(PlayerQuitEvent event) {
         Player player = event.getPlayer();
         plugin.getGameManager().removePlayer(player);
+    }
+    
+    @EventHandler
+    public void onEntityDeath(EntityDeathEvent event) {
+        // Проверяем, убит ли дракон Края
+        if (event.getEntity() instanceof EnderDragon) {
+            plugin.getGameManager().onEnderDragonKilled();
+        }
     }
     
     @EventHandler

@@ -10,12 +10,16 @@ public class GamePlayer {
     private PlayerRole role;
     private int lives;
     private boolean frozen;
+    private int speedrunnerWins;
+    private int speedrunnerLosses;
     
     public GamePlayer(Player player) {
         this.player = player;
         this.role = PlayerRole.SPECTATOR;
         this.lives = 1;
         this.frozen = false;
+        this.speedrunnerWins = 0;
+        this.speedrunnerLosses = 0;
     }
     
     public Player getPlayer() {
@@ -53,6 +57,30 @@ public class GamePlayer {
     
     public void setFrozen(boolean frozen) {
         this.frozen = frozen;
+    }
+    
+    public int getSpeedrunnerWins() {
+        return speedrunnerWins;
+    }
+    
+    public void setSpeedrunnerWins(int speedrunnerWins) {
+        this.speedrunnerWins = Math.max(0, speedrunnerWins);
+    }
+    
+    public void addSpeedrunnerWin() {
+        this.speedrunnerWins++;
+    }
+    
+    public int getSpeedrunnerLosses() {
+        return speedrunnerLosses;
+    }
+    
+    public void setSpeedrunnerLosses(int speedrunnerLosses) {
+        this.speedrunnerLosses = Math.max(0, speedrunnerLosses);
+    }
+    
+    public void addSpeedrunnerLoss() {
+        this.speedrunnerLosses++;
     }
     
     public void applyRoleSettings() {

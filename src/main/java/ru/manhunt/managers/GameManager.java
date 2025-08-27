@@ -33,6 +33,7 @@ public class GameManager implements Listener {
     private int freezeTime;
     private BukkitTask freezeTask;
     private BukkitTask gameTask;
+    private boolean dragonKilled;
     
     public GameManager(ManhuntPlugin plugin) {
         Bukkit.getPluginManager().registerEvents(this, plugin);
@@ -41,6 +42,7 @@ public class GameManager implements Listener {
         this.players = new HashMap<>();
         this.gameState = GameState.WAITING;
         this.freezeTime = 60; // По умолчанию 60 секунд
+        this.dragonKilled = false;
     }
     
     public void addPlayer(Player player) {
@@ -106,6 +108,9 @@ public class GameManager implements Listener {
         
         gameState = GameState.STARTING;
         broadcast("§aИгра начинается! Подготовка...");
+        
+        // Сброс флага убийства дракона
+        dragonKilled = false;
         
         // Сброс достижений у всех игроков
         resetAllPlayerAdvancements();
@@ -274,12 +279,45 @@ public class GameManager implements Listener {
         // Можно добавить другие условия победы (например, убийство дракона)
     }
     
+    public void onEnderDragonKilled() {
+        if (gameState != GameState.ACTIVE || dragonKilled) {
+            return;
+        }
+        
+        dragonKilled = true;
+        
+        // Обновляем статистику - спидранеры победили
+        updatePlayerStatistics(true);
+        
+        endGame("§aСпидранеры победили! Дракон Края убит!");
+    }
+    
+    private void updatePlayerStatistics(boolean speedrunnersWon) {
+        for (GamePlayer gamePlayer : players.values()) {
+            if (gamePlayer.getRole() == PlayerRole.SPEEDRUNNER) {
+                if (speedrunnersWon) {
+                    gamePlayer.addSpeedrunnerWin();
+                } else {
+                    gamePlayer.addSpeedrunnerLoss();
+                }
+            }
+        }
+        
+        // Обновляем табло статистики
+        plugin.getScoreboardManager().updatePlayerStatsScoreboard();
+    }
+    
     public void endGame(String reason) {
         if (gameState == GameState.STOPPED) {
             return;
         }
         
         gameState = GameState.ENDING;
+        
+        // Если игра закончилась не из-за убийства дракона, значит охотники победили
+        if (!dragonKilled && gameState != GameState.STOPPED) {
+            updatePlayerStatistics(false);
+        }
         
         broadcast("§e" + reason);
         broadcast("§aИгра окончена! Телепортируем всех в лобби...");
@@ -316,6 +354,7 @@ public class GameManager implements Listener {
         }
         
         gameState = GameState.WAITING;
+        dragonKilled = false;
     }
     
     public void stopGame() {
