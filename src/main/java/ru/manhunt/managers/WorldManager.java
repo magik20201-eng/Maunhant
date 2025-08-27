@@ -58,6 +58,7 @@ public class WorldManager {
         // Создание обычного мира
         WorldCreator gameCreator = new WorldCreator("manhunt_game");
         gameCreator.seed(newSeed);
+        gameCreator.generateStructures(true);
         gameWorld = gameCreator.createWorld();
         
         if (gameWorld != null) {
@@ -71,6 +72,7 @@ public class WorldManager {
         WorldCreator netherCreator = new WorldCreator("manhunt_game_nether");
         netherCreator.seed(newSeed);
         netherCreator.environment(World.Environment.NETHER);
+        netherCreator.generateStructures(true);
         netherWorld = netherCreator.createWorld();
         
         if (netherWorld != null) {
@@ -83,15 +85,47 @@ public class WorldManager {
         WorldCreator endCreator = new WorldCreator("manhunt_game_the_end");
         endCreator.seed(newSeed);
         endCreator.environment(World.Environment.THE_END);
+        endCreator.generateStructures(true);
         endWorld = endCreator.createWorld();
         
         if (endWorld != null) {
             endWorld.setDifficulty(Difficulty.NORMAL);
             endWorld.setGameRule(GameRule.KEEP_INVENTORY, false);
             endWorld.setGameRule(GameRule.DO_IMMEDIATE_RESPAWN, true);
+            
+            // Принудительно спавним дракона Края если его нет
+            plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
+                ensureEnderDragonExists(endWorld);
+            }, 20L); // Задержка в 1 секунду для полной загрузки мира
         }
         
         plugin.getLogger().info("Созданы игровые миры с сидом: " + newSeed);
+    }
+    
+    /**
+     * Проверяет наличие дракона Края и спавнит его если необходимо
+     */
+    private void ensureEnderDragonExists(World endWorld) {
+        if (endWorld == null || !endWorld.getEnvironment().equals(World.Environment.THE_END)) {
+            return;
+        }
+        
+        // Проверяем, есть ли дракон в мире
+        boolean dragonExists = endWorld.getEntitiesByClass(org.bukkit.entity.EnderDragon.class).size() > 0;
+        
+        if (!dragonExists) {
+            plugin.getLogger().info("Дракон Края не найден, принудительно спавним...");
+            
+            // Получаем центральную локацию острова Края (0, 64, 0)
+            Location dragonSpawn = new Location(endWorld, 0, 64, 0);
+            
+            // Спавним дракона
+            endWorld.spawnEntity(dragonSpawn, org.bukkit.entity.EntityType.ENDER_DRAGON);
+            
+            plugin.getLogger().info("Дракон Края успешно заспавнен!");
+        } else {
+            plugin.getLogger().info("Дракон Края уже существует в мире");
+        }
     }
     
     public void regenerateGameWorlds() {
@@ -104,34 +138,62 @@ public class WorldManager {
         
         if (gameWorld != null) {
             oldGameWorldName = gameWorld.getName();
-            Bukkit.unloadWorld(gameWorld, false);
+            // Телепортируем всех игроков из мира перед выгрузкой
+            teleportPlayersFromWorld(gameWorld);
+            plugin.getLogger().info("Выгружаем игровой мир: " + oldGameWorldName);
+            boolean unloaded = Bukkit.unloadWorld(gameWorld, false);
+            plugin.getLogger().info("Игровой мир выгружен: " + unloaded);
         }
         
         if (netherWorld != null) {
             oldNetherWorldName = netherWorld.getName();
-            Bukkit.unloadWorld(netherWorld, false);
+            teleportPlayersFromWorld(netherWorld);
+            plugin.getLogger().info("Выгружаем мир Ада: " + oldNetherWorldName);
+            boolean unloaded = Bukkit.unloadWorld(netherWorld, false);
+            plugin.getLogger().info("Мир Ада выгружен: " + unloaded);
         }
         
         if (endWorld != null) {
             oldEndWorldName = endWorld.getName();
-            Bukkit.unloadWorld(endWorld, false);
+            teleportPlayersFromWorld(endWorld);
+            plugin.getLogger().info("Выгружаем мир Края: " + oldEndWorldName);
+            boolean unloaded = Bukkit.unloadWorld(endWorld, false);
+            plugin.getLogger().info("Мир Края выгружен: " + unloaded);
         }
         
-        // Полное удаление старых миров с диска
-        if (oldGameWorldName != null) {
-            deleteWorldFromDisk(oldGameWorldName);
-        }
-        if (oldNetherWorldName != null) {
-            deleteWorldFromDisk(oldNetherWorldName);
-        }
-        if (oldEndWorldName != null) {
-            deleteWorldFromDisk(oldEndWorldName);
-        }
-        
-        // Создание нового игрового мира с новым сидом
-        loadGameWorld();
+        // Удаление старых миров с диска с задержкой
+        plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
+            if (oldGameWorldName != null) {
+                deleteWorldFromDisk(oldGameWorldName);
+            }
+            if (oldNetherWorldName != null) {
+                deleteWorldFromDisk(oldNetherWorldName);
+            }
+            if (oldEndWorldName != null) {
+                deleteWorldFromDisk(oldEndWorldName);
+            }
+            
+            // Создание новых миров после удаления старых
+            plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
+                loadGameWorld();
+            }, 10L);
+            
+        }, 5L); // Задержка в 0.25 секунды для полной выгрузки
         
         plugin.getLogger().info("Регенерация миров завершена!");
+    }
+    
+    /**
+     * Телепортирует всех игроков из указанного мира в лобби
+     */
+    private void teleportPlayersFromWorld(World world) {
+        if (world == null || lobbyWorld == null) return;
+        
+        Location lobbySpawn = lobbyWorld.getSpawnLocation();
+        for (Player player : world.getPlayers()) {
+            player.teleport(lobbySpawn);
+            plugin.getLogger().info("Игрок " + player.getName() + " телепортирован из мира " + world.getName());
+        }
     }
     
     /**
@@ -142,11 +204,14 @@ public class WorldManager {
             File worldFolder = new File(Bukkit.getWorldContainer(), worldName);
             if (worldFolder.exists() && worldFolder.isDirectory()) {
                 plugin.getLogger().info("Удаление мира: " + worldName);
+                plugin.getLogger().info("Путь к миру: " + worldFolder.getAbsolutePath());
                 deleteDirectoryRecursively(worldFolder.toPath());
                 plugin.getLogger().info("Мир " + worldName + " успешно удален");
             }
+                plugin.getLogger().info("Папка мира " + worldName + " не найдена или не является директорией");
         } catch (IOException e) {
             plugin.getLogger().warning("Не удалось удалить мир " + worldName + ": " + e.getMessage());
+            e.printStackTrace();
         }
     }
     
@@ -155,14 +220,20 @@ public class WorldManager {
      */
     private void deleteDirectoryRecursively(Path path) throws IOException {
         if (Files.exists(path)) {
+            plugin.getLogger().info("Начинаем рекурсивное удаление: " + path.toString());
             Files.walk(path)
                 .sorted(Comparator.reverseOrder())
                 .map(Path::toFile)
                 .forEach(file -> {
+                    plugin.getLogger().info("Удаляем файл/папку: " + file.getAbsolutePath());
                     if (!file.delete()) {
                         plugin.getLogger().warning("Не удалось удалить файл: " + file.getAbsolutePath());
+                    } else {
+                        plugin.getLogger().info("Успешно удален: " + file.getAbsolutePath());
                     }
                 });
+        } else {
+            plugin.getLogger().info("Путь не существует: " + path.toString());
         }
     }
     
