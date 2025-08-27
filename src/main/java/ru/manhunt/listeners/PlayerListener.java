@@ -10,6 +10,8 @@ import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.player.*;
 import org.bukkit.event.player.AsyncPlayerChatEvent;
+import org.bukkit.event.player.PlayerPortalEvent;
+import org.bukkit.PortalType;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.entity.EnderDragon;
 import ru.manhunt.ManhuntPlugin;
@@ -214,6 +216,28 @@ public class PlayerListener implements Listener {
             // Формат: ЦветНик [Роль]: сообщение
             String format = colorCode + "%1$s " + rolePrefix + "§f: %2$s";
             event.setFormat(format);
+        }
+    }
+    
+    @EventHandler
+    public void onPlayerPortal(PlayerPortalEvent event) {
+        Player player = event.getPlayer();
+        
+        // Проверяем, что это портал в Энд
+        if (event.getCause() == PlayerTeleportEvent.TeleportCause.END_PORTAL) {
+            // Получаем наш сгенерированный мир Края
+            World endWorld = plugin.getWorldManager().getEndWorld();
+            
+            if (endWorld != null) {
+                // Устанавливаем место назначения на спавн нашего мира Края
+                Location endSpawn = endWorld.getSpawnLocation();
+                event.setTo(endSpawn);
+                
+                player.sendMessage("§eВы телепортируетесь в мир Края Manhunt!");
+                plugin.getLogger().info("Игрок " + player.getName() + " телепортирован в мир Края плагина");
+            } else {
+                plugin.getLogger().warning("Мир Края плагина не найден для игрока " + player.getName());
+            }
         }
     }
 }
