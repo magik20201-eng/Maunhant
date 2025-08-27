@@ -1,0 +1,46 @@
+# Конфигурация Manhunt Plugin
+
+# Настройки игры
+game:
+  # Время заморозки охотников по умолчанию (в секундах)
+  default-freeze-time: 60
+  
+  # Минимальное время заморозки
+  min-freeze-time: 10
+  
+  # Максимальное время заморозки
+  max-freeze-time: 600
+  
+  # Максимальное количество жизней у спидранера
+  max-lives: 10
+
+# Настройки миров
+worlds:
+  # Имя лобби мира
+  lobby-world: "manhunt_lobby"
+  
+  # Имя игрового мира
+  game-world: "manhunt_game"
+  
+  # Автоудаление старых миров
+  auto-delete-worlds: true
+
+# Настройки игроков
+players:
+  # Сброс достижений перед новой игрой
+  reset-advancements: true
+
+# Сообщения
+messages:
+  prefix: "§6[Manhunt] §r"
+  no-permission: "§cУ вас нет прав для выполнения этой команды!"
+  game-started: "§aИгра началась!"
+  game-ended: "§cИгра окончена!"
+  
+# Компас
+compass:
+  # Радиус поиска порталов
+  portal-search-radius: 100
+  
+  # Название компаса
+  compass-name: "§cКомпас Охотника"

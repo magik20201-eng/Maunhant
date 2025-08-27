@@ -1,0 +1,24 @@
+name: ManhuntPlugin
+version: 2.0
+main: ru.manhunt.ManhuntPlugin
+api-version: 1.21
+author: HellMagWaez
+description: Плагин спидранеры против охотников
+
+commands:
+  manhunt:
+    description: Main manhunt command
+    usage: /manhunt
+    permission: manhunt.use
+  mh:
+    description: Short manhunt command
+    usage: /mh
+    permission: manhunt.use
+
+permissions:
+  manhunt.use:
+    description: Allows using manhunt commands
+    default: true
+  manhunt.admin:
+    description: Allows admin manhunt commands
+    default: op
