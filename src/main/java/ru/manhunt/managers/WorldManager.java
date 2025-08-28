@@ -133,45 +133,50 @@ public class WorldManager {
         plugin.getLogger().info("Регенерация игровых миров...");
         
         // Сохраняем имена старых миров для удаления
-        String oldGameWorldName = null;
-        String oldNetherWorldName = null;
-        String oldEndWorldName = null;
+        String oldGameWorldNameTemp = null;
+        String oldNetherWorldNameTemp = null;
+        String oldEndWorldNameTemp = null;
         
         if (gameWorld != null) {
-            oldGameWorldName = gameWorld.getName();
+            oldGameWorldNameTemp = gameWorld.getName();
             // Телепортируем всех игроков из мира перед выгрузкой
             teleportPlayersFromWorld(gameWorld);
-            plugin.getLogger().info("Выгружаем игровой мир: " + oldGameWorldName);
+            plugin.getLogger().info("Выгружаем игровой мир: " + oldGameWorldNameTemp);
             boolean unloaded = Bukkit.unloadWorld(gameWorld, false);
             plugin.getLogger().info("Игровой мир выгружен: " + unloaded);
         }
         
         if (netherWorld != null) {
-            oldNetherWorldName = netherWorld.getName();
+            oldNetherWorldNameTemp = netherWorld.getName();
             teleportPlayersFromWorld(netherWorld);
-            plugin.getLogger().info("Выгружаем мир Ада: " + oldNetherWorldName);
+            plugin.getLogger().info("Выгружаем мир Ада: " + oldNetherWorldNameTemp);
             boolean unloaded = Bukkit.unloadWorld(netherWorld, false);
             plugin.getLogger().info("Мир Ада выгружен: " + unloaded);
         }
         
         if (endWorld != null) {
-            oldEndWorldName = endWorld.getName();
+            oldEndWorldNameTemp = endWorld.getName();
             teleportPlayersFromWorld(endWorld);
-            plugin.getLogger().info("Выгружаем мир Края: " + oldEndWorldName);
+            plugin.getLogger().info("Выгружаем мир Края: " + oldEndWorldNameTemp);
             boolean unloaded = Bukkit.unloadWorld(endWorld, false);
             plugin.getLogger().info("Мир Края выгружен: " + unloaded);
         }
         
+        // Создаем final копии для использования в lambda
+        final String finalOldGameWorldName = oldGameWorldNameTemp;
+        final String finalOldNetherWorldName = oldNetherWorldNameTemp;
+        final String finalOldEndWorldName = oldEndWorldNameTemp;
+        
         // Удаление старых миров с диска с задержкой
         plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
-            if (oldGameWorldName != null) {
-                deleteWorldFromDisk(oldGameWorldName);
+            if (finalOldGameWorldName != null) {
+                deleteWorldFromDisk(finalOldGameWorldName);
             }
-            if (oldNetherWorldName != null) {
-                deleteWorldFromDisk(oldNetherWorldName);
+            if (finalOldNetherWorldName != null) {
+                deleteWorldFromDisk(finalOldNetherWorldName);
             }
-            if (oldEndWorldName != null) {
-                deleteWorldFromDisk(oldEndWorldName);
+            if (finalOldEndWorldName != null) {
+                deleteWorldFromDisk(finalOldEndWorldName);
             }
             
             // Создание новых миров после удаления старых
