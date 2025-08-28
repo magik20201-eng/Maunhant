@@ -225,6 +225,51 @@ public class PlayerListener implements Listener {
     public void onPlayerPortal(PlayerPortalEvent event) {
         Player player = event.getPlayer();
         
+        // Обработка порталов в Незер
+        if (event.getCause() == PlayerTeleportEvent.TeleportCause.NETHER_PORTAL) {
+            World currentWorld = player.getWorld();
+            Location currentLoc = player.getLocation();
+            
+            // Из обычного мира в Незер
+            if (currentWorld.equals(plugin.getWorldManager().getGameWorld())) {
+                World netherWorld = plugin.getWorldManager().getNetherWorld();
+                if (netherWorld != null) {
+                    // Координаты в Незере (деление на 8)
+                    int targetX = currentLoc.getBlockX() / 8;
+                    int targetZ = currentLoc.getBlockZ() / 8;
+                    int targetY = 64; // Безопасная высота в Незере
+                    
+                    // Поиск безопасного места
+                    Location targetLoc = new Location(netherWorld, targetX, targetY, targetZ);
+                    targetLoc = findSafeLocation(targetLoc);
+                    
+                    event.setTo(targetLoc);
+                    player.sendMessage("§eВы телепортируетесь в Незер Manhunt!");
+                    plugin.getLogger().info("Игрок " + player.getName() + " телепортирован в Незер");
+                    return;
+                }
+            }
+            
+            // Из Незера в обычный мир
+            if (currentWorld.equals(plugin.getWorldManager().getNetherWorld())) {
+                World gameWorld = plugin.getWorldManager().getGameWorld();
+                if (gameWorld != null) {
+                    // Координаты в обычном мире (умножение на 8)
+                    int targetX = currentLoc.getBlockX() * 8;
+                    int targetZ = currentLoc.getBlockZ() * 8;
+                    int targetY = gameWorld.getHighestBlockYAt(targetX, targetZ) + 1;
+                    
+                    Location targetLoc = new Location(gameWorld, targetX, targetY, targetZ);
+                    targetLoc = findSafeLocation(targetLoc);
+                    
+                    event.setTo(targetLoc);
+                    player.sendMessage("§eВы телепортируетесь в обычный мир Manhunt!");
+                    plugin.getLogger().info("Игрок " + player.getName() + " телепортирован в обычный мир");
+                    return;
+                }
+            }
+        }
+        
         // Проверяем, что это портал в Энд
         if (event.getCause() == PlayerTeleportEvent.TeleportCause.END_PORTAL) {
             // Получаем наш сгенерированный мир Края
@@ -241,5 +286,30 @@ public class PlayerListener implements Listener {
                 plugin.getLogger().warning("Мир Края плагина не найден для игрока " + player.getName());
             }
         }
+    }
+    
+    /**
+     * Находит безопасное место для телепортации
+     */
+    private Location findSafeLocation(Location location) {
+        World world = location.getWorld();
+        int x = location.getBlockX();
+        int z = location.getBlockZ();
+        
+        // Поиск безопасной высоты
+        for (int y = Math.max(1, location.getBlockY() - 10); y <= Math.min(world.getMaxHeight() - 2, location.getBlockY() + 10); y++) {
+            Location checkLoc = new Location(world, x, y, z);
+            
+            // Проверяем, что есть твердый блок под ногами и свободное место для игрока
+            if (checkLoc.getBlock().getType().isSolid() && 
+                checkLoc.clone().add(0, 1, 0).getBlock().getType().isAir() && 
+                checkLoc.clone().add(0, 2, 0).getBlock().getType().isAir()) {
+                
+                return checkLoc.clone().add(0.5, 1, 0.5); // Центрируем и поднимаем на блок
+            }
+        }
+        
+        // Если безопасное место не найдено, возвращаем исходную локацию
+        return location;
     }
 }

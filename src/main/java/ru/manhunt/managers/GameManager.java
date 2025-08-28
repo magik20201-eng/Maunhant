@@ -116,30 +116,29 @@ public class GameManager implements Listener {
         resetAllPlayerAdvancements();
         
         // Регенерация игрового мира
-        plugin.getWorldManager().regenerateGameWorlds();
-        
-        // Телепорт всех игроков в игровой мир
-        Location gameSpawn = plugin.getWorldManager().getGameSpawn();
-        for (GamePlayer gamePlayer : players.values()) {
-            Player player = gamePlayer.getPlayer();
-            player.teleport(gameSpawn);
-            if (gamePlayer.getRole() == PlayerRole.JUDGE) {
-            player.setGameMode(GameMode.SPECTATOR); // GM 3
-            }           
-            else {
-            player.setGameMode(GameMode.SURVIVAL); // GM 0
+        plugin.getWorldManager().regenerateGameWorlds(() -> {
+            // Телепорт всех игроков в игровой мир (выполняется после создания миров)
+            Location gameSpawn = plugin.getWorldManager().getGameSpawn();
+            for (GamePlayer gamePlayer : players.values()) {
+                Player player = gamePlayer.getPlayer();
+                player.teleport(gameSpawn);
+                if (gamePlayer.getRole() == PlayerRole.JUDGE) {
+                    player.setGameMode(GameMode.SPECTATOR); // GM 3
+                } else {
+                    player.setGameMode(GameMode.SURVIVAL); // GM 0
+                }
+                player.getInventory().clear();
+                player.setHealth(20.0);
+                player.setFoodLevel(20);
+                
+                // Сброс эффектов
+                for (PotionEffect effect : player.getActivePotionEffects()) {
+                    player.removePotionEffect(effect.getType());
+                }
             }
-            player.getInventory().clear();
-            player.setHealth(20.0);
-            player.setFoodLevel(20);
             
-            // Сброс эффектов
-            for (PotionEffect effect : player.getActivePotionEffects()) {
-                player.removePotionEffect(effect.getType());
-            }
-        }
-        
-        startHunterFreezePhase();
+            startHunterFreezePhase();
+        });
     }
     
     /**

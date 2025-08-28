@@ -129,7 +129,7 @@ public class WorldManager {
         }
     }
     
-    public void regenerateGameWorlds() {
+    public void regenerateGameWorlds(Runnable callback) {
         plugin.getLogger().info("Регенерация игровых миров...");
         
         // Сохраняем имена старых миров для удаления
@@ -182,6 +182,9 @@ public class WorldManager {
             // Создание новых миров после удаления старых
             plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
                 loadGameWorld();
+                if (callback != null) {
+                    callback.run();
+                }
             }, 10L);
             
         }, 5L); // Задержка в 0.25 секунды для полной выгрузки
