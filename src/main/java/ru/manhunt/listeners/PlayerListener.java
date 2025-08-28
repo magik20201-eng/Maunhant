@@ -276,11 +276,16 @@ public class PlayerListener implements Listener {
             World endWorld = plugin.getWorldManager().getEndWorld();
             
             if (endWorld != null) {
-                // Устанавливаем место назначения на спавн нашего мира Края
-                Location endSpawn = endWorld.getSpawnLocation();
+                // Устанавливаем безопасную точку спавна подальше от центральной платформы дракона
+                // Используем координаты (100, 64, 0) чтобы избежать центра где дракон парит
+                Location endSpawn = new Location(endWorld, 100, 64, 0);
+                
+                // Находим безопасное место для спавна
+                endSpawn = findSafeLocation(endSpawn);
+                
                 event.setTo(endSpawn);
                 
-                player.sendMessage("§eВы телепортируетесь в мир Края Manhunt!");
+                player.sendMessage("§5Вы телепортируетесь в мир Края Manhunt! Берегитесь дракона!");
                 plugin.getLogger().info("Игрок " + player.getName() + " телепортирован в мир Края плагина");
             } else {
                 plugin.getLogger().warning("Мир Края плагина не найден для игрока " + player.getName());
