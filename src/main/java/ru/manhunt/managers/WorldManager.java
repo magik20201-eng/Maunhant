@@ -4,7 +4,6 @@ import org.bukkit.*;
 import org.bukkit.generator.ChunkGenerator;
 import org.bukkit.generator.WorldInfo;
 import org.bukkit.entity.Player;
-import org.bukkit.boss.EnderDragonBattle;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -112,32 +111,36 @@ public class WorldManager {
             return;
         }
         
-        // Получаем битву дракона Края
-        EnderDragonBattle dragonBattle = endWorld.getEnderDragonBattle();
+        // Проверяем наличие дракона в мире
+        boolean dragonExists = !endWorld.getEntitiesByClass(org.bukkit.entity.EnderDragon.class).isEmpty();
         
-        if (dragonBattle != null) {
-            if (!dragonBattle.hasDragon()) {
-                plugin.getLogger().info("Дракон Края не найден, запускаем битву дракона...");
+        if (!dragonExists) {
+            plugin.getLogger().info("Дракон Края не найден, спавним дракона...");
+            
+            // Спавним дракона в центре острова Края
+            Location dragonSpawn = new Location(endWorld, 0, 64, 0);
+            
+            // Убеждаемся что чанк загружен
+            endWorld.getChunkAt(dragonSpawn).load(true);
+            
+            // Спавним дракона
+            org.bukkit.entity.EnderDragon dragon = (org.bukkit.entity.EnderDragon) endWorld.spawnEntity(dragonSpawn, org.bukkit.entity.EntityType.ENDER_DRAGON);
+            
+            if (dragon != null) {
+                // Устанавливаем максимальное здоровье дракона
+                dragon.setMaxHealth(200.0);
+                dragon.setHealth(200.0);
                 
-                // Спавним дракона через EnderDragonBattle API для полного ИИ
-                dragonBattle.spawnDragon();
+                // Активируем ИИ дракона
+                dragon.setAI(true);
+                dragon.setRemoveWhenFarAway(false);
                 
-                plugin.getLogger().info("Битва дракона Края запущена! Дракон имеет полный ИИ.");
+                plugin.getLogger().info("Дракон Края успешно заспавнен с полным ИИ!");
             } else {
-                plugin.getLogger().info("Дракон Края уже существует в битве");
+                plugin.getLogger().warning("Не удалось заспавнить дракона Края!");
             }
         } else {
-            plugin.getLogger().warning("EnderDragonBattle не найден для мира Края, используем резервный метод спавна");
-            
-            // Резервный метод если EnderDragonBattle недоступен
-            boolean dragonExists = endWorld.getEntitiesByClass(org.bukkit.entity.EnderDragon.class).size() > 0;
-            
-            if (!dragonExists) {
-                plugin.getLogger().info("Спавним дракона резервным методом...");
-                Location dragonSpawn = new Location(endWorld, 0, 64, 0);
-                endWorld.spawnEntity(dragonSpawn, org.bukkit.entity.EntityType.ENDER_DRAGON);
-                plugin.getLogger().info("Дракон заспавнен резервным методом");
-            }
+            plugin.getLogger().info("Дракон Края уже существует в мире");
         }
     }
     
