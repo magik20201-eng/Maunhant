@@ -121,46 +121,207 @@ public class WorldManager {
         if (!dragonExists) {
             plugin.getLogger().info("Дракон Края не найден, спавним дракона...");
             
-            // Спавним дракона в центре острова Края
-            Location dragonSpawn = new Location(endWorld, 0, 64, 0);
+            // Спавним дракона в центре острова Края (стандартная позиция)
+            Location dragonSpawn = new Location(endWorld, 0, 128, 0);
             
             // Убеждаемся что чанк загружен
-            endWorld.getChunkAt(dragonSpawn).load(true);
+            Chunk dragonChunk = endWorld.getChunkAt(dragonSpawn);
+            dragonChunk.load(true);
+            dragonChunk.setForceLoaded(true);
             
-            // Задержка для полной загрузки чанка
-            plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
-                // Спавним дракона
-                org.bukkit.entity.EnderDragon dragon = (org.bukkit.entity.EnderDragon) endWorld.spawnEntity(dragonSpawn, org.bukkit.entity.EntityType.ENDER_DRAGON);
-                
-                if (dragon != null) {
-                    // Устанавливаем максимальное здоровье дракона
-                    dragon.setMaxHealth(200.0);
-                    dragon.setHealth(200.0);
-                    
-                    // Активируем ИИ дракона
-                    dragon.setAI(true);
-                    dragon.setRemoveWhenFarAway(false);
-                    dragon.setPersistent(true);
-                    
-                    // Принудительно активируем дракона
-                    dragon.setTarget(null);
-                    
-                    // Дополнительная задержка для активации ИИ
-                    plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
-                        if (dragon.isValid()) {
-                            dragon.setAI(true);
-                            plugin.getLogger().info("ИИ дракона активирован повторно!");
-                        }
-                    }, 40L); // 2 секунды
-                    
-                    plugin.getLogger().info("Дракон Края успешно заспавнен с полным ИИ!");
-                } else {
-                    plugin.getLogger().warning("Не удалось заспавнить дракона Края!");
+            // Загружаем соседние чанки для стабильности
+            for (int dx = -1; dx <= 1; dx++) {
+                for (int dz = -1; dz <= 1; dz++) {
+                    Chunk chunk = endWorld.getChunkAt(dragonChunk.getX() + dx, dragonChunk.getZ() + dz);
+                    chunk.load(true);
+                    chunk.setForceLoaded(true);
                 }
-            }, 20L); // 1 секунда задержки
+            }
+            
+            // Увеличенная задержка для полной загрузки всех чанков
+            plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
+                spawnEnderDragonWithAI(endWorld, dragonSpawn);
+            }, 100L); // 5 секунд задержки для полной загрузки
         } else {
             plugin.getLogger().info("Дракон Края уже существует в мире");
         }
+    }
+    
+    /**
+     * Спавнит дракона Края с полным ИИ
+     */
+    private void spawnEnderDragonWithAI(World endWorld, Location spawnLoc) {
+        try {
+            // Очищаем область от возможных препятствий
+            for (int x = -5; x <= 5; x++) {
+                for (int y = -5; y <= 10; y++) {
+                    for (int z = -5; z <= 5; z++) {
+                        Location clearLoc = spawnLoc.clone().add(x, y, z);
+                        if (clearLoc.getBlock().getType() != Material.AIR && 
+                            clearLoc.getBlock().getType() != Material.END_STONE) {
+                            clearLoc.getBlock().setType(Material.AIR);
+                        }
+                    }
+                }
+            }
+            
+            // Спавним дракона
+            org.bukkit.entity.EnderDragon dragon = (org.bukkit.entity.EnderDragon) endWorld.spawnEntity(spawnLoc, org.bukkit.entity.EntityType.ENDER_DRAGON);
+            
+            if (dragon != null) {
+                plugin.getLogger().info("Дракон заспавнен, настраиваем ИИ...");
+                
+                // Базовые настройки дракона
+                dragon.setMaxHealth(200.0);
+                dragon.setHealth(200.0);
+                dragon.setRemoveWhenFarAway(false);
+                dragon.setPersistent(true);
+                dragon.setAI(true);
+                
+                // Сброс состояния дракона
+                dragon.setTarget(null);
+                dragon.setVelocity(new org.bukkit.util.Vector(0, 0, 0));
+                
+                // Принудительная активация через несколько тиков
+                plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
+                    if (dragon.isValid()) {
+                        dragon.setAI(true);
+                        
+                        // Попытка "разбудить" дракона, заставив его заметить игроков
+                        for (Player player : endWorld.getPlayers()) {
+                            if (player.getLocation().distance(dragon.getLocation()) < 100) {
+                                dragon.setTarget(player);
+                                break;
+                            }
+                        }
+                        
+                        plugin.getLogger().info("ИИ дракона активирован повторно с целью!");
+                    }
+                }, 60L); // 3 секунды
+                
+                // Еще одна попытка через больший интервал
+                plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
+                    if (dragon.isValid()) {
+                        dragon.setAI(true);
+                        
+                        // Принудительное движение дракона
+                        org.bukkit.util.Vector randomVelocity = new org.bukkit.util.Vector(
+                            (Math.random() - 0.5) * 0.5,
+                            0.2,
+                            (Math.random() - 0.5) * 0.5
+                        );
+                        dragon.setVelocity(randomVelocity);
+                        
+                        plugin.getLogger().info("Дракон принудительно активирован с движением!");
+                    }
+                }, 120L); // 6 секунд
+                
+                plugin.getLogger().info("Дракон Края успешно заспавнен!");
+            } else {
+                plugin.getLogger().warning("Не удалось заспавнить дракона Края!");
+            }
+            
+        } catch (Exception e) {
+            plugin.getLogger().severe("Ошибка при спавне дракона: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+    
+    /**
+     * Создает портал в Незер в указанной локации
+     */
+    private void createNetherPortal(Location center) {
+        World world = center.getWorld();
+        if (world == null) return;
+        
+        int x = center.getBlockX();
+        int y = center.getBlockY();
+        int z = center.getBlockZ();
+        
+        // Находим подходящую высоту для портала
+        if (world.getEnvironment() == World.Environment.NETHER) {
+            // В Незере ищем безопасное место
+            for (int checkY = Math.max(10, y - 5); checkY <= Math.min(120, y + 10); checkY++) {
+                Location checkLoc = new Location(world, x, checkY, z);
+                boolean canPlace = true;
+                
+                // Проверяем область 4x5x3 для портала
+                for (int dx = -1; dx <= 2; dx++) {
+                    for (int dy = 0; dy <= 4; dy++) {
+                        for (int dz = -1; dz <= 1; dz++) {
+                            Location blockLoc = checkLoc.clone().add(dx, dy, dz);
+                            Material blockType = blockLoc.getBlock().getType();
+                            if (blockType == Material.LAVA || blockType == Material.BEDROCK) {
+                                canPlace = false;
+                                break;
+                            }
+                        }
+                        if (!canPlace) break;
+                    }
+                    if (!canPlace) break;
+                }
+                
+                if (canPlace) {
+                    y = checkY;
+                    break;
+                }
+            }
+        } else {
+            // В обычном мире используем высоту поверхности
+            y = Math.max(y, world.getHighestBlockYAt(x, z) + 1);
+        }
+        
+        // Очищаем область для портала
+        for (int dx = -1; dx <= 2; dx++) {
+            for (int dy = 0; dy <= 4; dy++) {
+                for (int dz = -1; dz <= 1; dz++) {
+                    Location clearLoc = new Location(world, x + dx, y + dy, z + dz);
+                    if (clearLoc.getBlock().getType() != Material.BEDROCK) {
+                        clearLoc.getBlock().setType(Material.AIR);
+                    }
+                }
+            }
+        }
+        
+        // Создаем основание портала если нужно
+        for (int dx = -1; dx <= 2; dx++) {
+            for (int dz = -1; dz <= 1; dz++) {
+                Location baseLoc = new Location(world, x + dx, y - 1, z + dz);
+                if (baseLoc.getBlock().getType() == Material.AIR || baseLoc.getBlock().getType() == Material.LAVA) {
+                    baseLoc.getBlock().setType(world.getEnvironment() == World.Environment.NETHER ? 
+                        Material.NETHERRACK : Material.STONE);
+                }
+            }
+        }
+        
+        // Создаем рамку портала из обсидиана
+        Material obsidian = Material.OBSIDIAN;
+        Material portal = Material.NETHER_PORTAL;
+        
+        // Нижняя и верхняя части рамки
+        for (int dx = 0; dx <= 1; dx++) {
+            world.getBlockAt(x + dx, y, z).setType(obsidian);
+            world.getBlockAt(x + dx, y + 4, z).setType(obsidian);
+        }
+        
+        // Боковые части рамки
+        for (int dy = 1; dy <= 3; dy++) {
+            world.getBlockAt(x - 1, y + dy, z).setType(obsidian);
+            world.getBlockAt(x + 2, y + dy, z).setType(obsidian);
+        }
+        
+        // Задержка перед созданием портала для стабильности
+        plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
+            // Внутренняя часть портала
+            for (int dx = 0; dx <= 1; dx++) {
+                for (int dy = 1; dy <= 3; dy++) {
+                    world.getBlockAt(x + dx, y + dy, z).setType(portal);
+                }
+            }
+            plugin.getLogger().info("Портал активирован в мире " + world.getName());
+        }, 5L);
+        
+        plugin.getLogger().info("Создан портал в мире " + world.getName() + " на координатах: " + x + ", " + y + ", " + z);
     }
     
     public void regenerateGameWorlds(Runnable callback) {

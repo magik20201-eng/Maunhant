@@ -233,8 +233,6 @@ public class PlayerListener implements Listener {
         
         // Обработка порталов в Незер
         if (event.getCause() == PlayerTeleportEvent.TeleportCause.NETHER_PORTAL) {
-            event.setCancelled(true); // Отменяем стандартную телепортацию
-            
             World currentWorld = player.getWorld();
             Location currentLoc = player.getLocation();
             
@@ -242,18 +240,19 @@ public class PlayerListener implements Listener {
             if (currentWorld.equals(plugin.getWorldManager().getGameWorld())) {
                 World netherWorld = plugin.getWorldManager().getNetherWorld();
                 if (netherWorld != null) {
-                    // Координаты в Незере (деление на 8)
-                    int targetX = currentLoc.getBlockX() / 8;
-                    int targetZ = currentLoc.getBlockZ() / 8;
-                    int targetY = 64; // Безопасная высота в Незере
+                    // Используем стандартную логику Minecraft для координат
+                    Location netherLoc = new Location(netherWorld, 
+                        currentLoc.getX() / 8.0, 
+                        Math.max(10, Math.min(120, currentLoc.getY())), 
+                        currentLoc.getZ() / 8.0);
                     
-                    // Поиск безопасного места
-                    Location targetLoc = new Location(netherWorld, targetX, targetY, targetZ);
-                    targetLoc = findSafeLocation(targetLoc);
+                    // Создаем портал в Незере
+                    createNetherPortal(netherLoc);
                     
-                    player.teleport(targetLoc);
+                    // Телепортируем игрока
+                    event.setTo(findSafeLocation(netherLoc));
                     player.sendMessage("§eВы телепортируетесь в Незер Manhunt!");
-                    plugin.getLogger().info("Игрок " + player.getName() + " телепортирован в Незер");
+                    plugin.getLogger().info("Игрок " + player.getName() + " телепортирован в Незер на координаты: " + netherLoc);
                     return;
                 }
             }
@@ -262,17 +261,23 @@ public class PlayerListener implements Listener {
             if (currentWorld.equals(plugin.getWorldManager().getNetherWorld())) {
                 World gameWorld = plugin.getWorldManager().getGameWorld();
                 if (gameWorld != null) {
-                    // Координаты в обычном мире (умножение на 8)
-                    int targetX = currentLoc.getBlockX() * 8;
-                    int targetZ = currentLoc.getBlockZ() * 8;
-                    int targetY = gameWorld.getHighestBlockYAt(targetX, targetZ) + 1;
+                    // Используем стандартную логику Minecraft для координат
+                    Location overworldLoc = new Location(gameWorld, 
+                        currentLoc.getX() * 8.0, 
+                        currentLoc.getY(), 
+                        currentLoc.getZ() * 8.0);
                     
-                    Location targetLoc = new Location(gameWorld, targetX, targetY, targetZ);
-                    targetLoc = findSafeLocation(targetLoc);
+                    // Находим безопасную высоту
+                    int safeY = gameWorld.getHighestBlockYAt((int)overworldLoc.getX(), (int)overworldLoc.getZ()) + 1;
+                    overworldLoc.setY(safeY);
                     
-                    player.teleport(targetLoc);
+                    // Создаем портал в обычном мире
+                    createNetherPortal(overworldLoc);
+                    
+                    // Телепортируем игрока
+                    event.setTo(findSafeLocation(overworldLoc));
                     player.sendMessage("§eВы телепортируетесь в обычный мир Manhunt!");
-                    plugin.getLogger().info("Игрок " + player.getName() + " телепортирован в обычный мир");
+                    plugin.getLogger().info("Игрок " + player.getName() + " телепортирован в обычный мир на координаты: " + overworldLoc);
                     return;
                 }
             }
@@ -280,27 +285,67 @@ public class PlayerListener implements Listener {
         
         // Проверяем, что это портал в Энд
         if (event.getCause() == PlayerTeleportEvent.TeleportCause.END_PORTAL) {
-            event.setCancelled(true); // Отменяем стандартную телепортацию
-            
             // Получаем наш сгенерированный мир Края
             World endWorld = plugin.getWorldManager().getEndWorld();
             
             if (endWorld != null) {
-                // Устанавливаем безопасную точку спавна подальше от центральной платформы дракона
-                // Используем координаты (100, 64, 0) чтобы избежать центра где дракон парит
-                Location endSpawn = new Location(endWorld, 100, 64, 0);
-                
-                // Находим безопасное место для спавна
+                // Безопасная точка спавна подальше от дракона
+                Location endSpawn = new Location(endWorld, 100, 48, 0);
                 endSpawn = findSafeLocation(endSpawn);
                 
-                player.teleport(endSpawn);
-                
+                event.setTo(endSpawn);
                 player.sendMessage("§5Вы телепортируетесь в мир Края Manhunt! Берегитесь дракона!");
                 plugin.getLogger().info("Игрок " + player.getName() + " телепортирован в мир Края плагина");
             } else {
                 plugin.getLogger().warning("Мир Края плагина не найден для игрока " + player.getName());
             }
         }
+    }
+    
+    /**
+     * Создает портал в Незер в указанной локации
+     */
+    private void createNetherPortal(Location center) {
+        World world = center.getWorld();
+        if (world == null) return;
+        
+        int x = center.getBlockX();
+        int y = center.getBlockY();
+        int z = center.getBlockZ();
+        
+        // Находим подходящую высоту для портала
+        for (int checkY = y; checkY >= Math.max(1, y - 10); checkY--) {
+            Location groundLoc = new Location(world, x, checkY, z);
+            if (groundLoc.getBlock().getType().isSolid()) {
+                y = checkY + 1;
+                break;
+            }
+        }
+        
+        // Создаем рамку портала из обсидиана
+        Material obsidian = Material.OBSIDIAN;
+        Material portal = Material.NETHER_PORTAL;
+        
+        // Нижняя и верхняя части рамки
+        for (int dx = -1; dx <= 2; dx++) {
+            world.getBlockAt(x + dx, y, z).setType(obsidian);
+            world.getBlockAt(x + dx, y + 4, z).setType(obsidian);
+        }
+        
+        // Боковые части рамки
+        for (int dy = 1; dy <= 3; dy++) {
+            world.getBlockAt(x - 1, y + dy, z).setType(obsidian);
+            world.getBlockAt(x + 2, y + dy, z).setType(obsidian);
+        }
+        
+        // Внутренняя часть портала
+        for (int dx = 0; dx <= 1; dx++) {
+            for (int dy = 1; dy <= 3; dy++) {
+                world.getBlockAt(x + dx, y + dy, z).setType(portal);
+            }
+        }
+        
+        plugin.getLogger().info("Создан портал в Незер в мире " + world.getName() + " на координатах: " + x + ", " + y + ", " + z);
     }
     
     /**
