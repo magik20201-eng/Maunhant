@@ -94,10 +94,14 @@ public class WorldManager {
             endWorld.setGameRule(GameRule.KEEP_INVENTORY, false);
             endWorld.setGameRule(GameRule.DO_IMMEDIATE_RESPAWN, true);
             
+            // Устанавливаем спавн подальше от центра
+            Location endSpawn = new Location(endWorld, 100, 64, 0);
+            endWorld.setSpawnLocation(endSpawn);
+            
             // Принудительно спавним дракона Края если его нет
             plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
                 ensureEnderDragonExists(endWorld);
-            }, 20L); // Задержка в 1 секунду для полной загрузки мира
+            }, 60L); // Задержка в 3 секунды для полной загрузки мира
         }
         
         plugin.getLogger().info("Созданы игровые миры с сидом: " + newSeed);
@@ -123,22 +127,37 @@ public class WorldManager {
             // Убеждаемся что чанк загружен
             endWorld.getChunkAt(dragonSpawn).load(true);
             
-            // Спавним дракона
-            org.bukkit.entity.EnderDragon dragon = (org.bukkit.entity.EnderDragon) endWorld.spawnEntity(dragonSpawn, org.bukkit.entity.EntityType.ENDER_DRAGON);
-            
-            if (dragon != null) {
-                // Устанавливаем максимальное здоровье дракона
-                dragon.setMaxHealth(200.0);
-                dragon.setHealth(200.0);
+            // Задержка для полной загрузки чанка
+            plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
+                // Спавним дракона
+                org.bukkit.entity.EnderDragon dragon = (org.bukkit.entity.EnderDragon) endWorld.spawnEntity(dragonSpawn, org.bukkit.entity.EntityType.ENDER_DRAGON);
                 
-                // Активируем ИИ дракона
-                dragon.setAI(true);
-                dragon.setRemoveWhenFarAway(false);
-                
-                plugin.getLogger().info("Дракон Края успешно заспавнен с полным ИИ!");
-            } else {
-                plugin.getLogger().warning("Не удалось заспавнить дракона Края!");
-            }
+                if (dragon != null) {
+                    // Устанавливаем максимальное здоровье дракона
+                    dragon.setMaxHealth(200.0);
+                    dragon.setHealth(200.0);
+                    
+                    // Активируем ИИ дракона
+                    dragon.setAI(true);
+                    dragon.setRemoveWhenFarAway(false);
+                    dragon.setPersistent(true);
+                    
+                    // Принудительно активируем дракона
+                    dragon.setTarget(null);
+                    
+                    // Дополнительная задержка для активации ИИ
+                    plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
+                        if (dragon.isValid()) {
+                            dragon.setAI(true);
+                            plugin.getLogger().info("ИИ дракона активирован повторно!");
+                        }
+                    }, 40L); // 2 секунды
+                    
+                    plugin.getLogger().info("Дракон Края успешно заспавнен с полным ИИ!");
+                } else {
+                    plugin.getLogger().warning("Не удалось заспавнить дракона Края!");
+                }
+            }, 20L); // 1 секунда задержки
         } else {
             plugin.getLogger().info("Дракон Края уже существует в мире");
         }

@@ -225,8 +225,16 @@ public class PlayerListener implements Listener {
     public void onPlayerPortal(PlayerPortalEvent event) {
         Player player = event.getPlayer();
         
+        // Проверяем, что игрок участвует в игре Manhunt
+        GamePlayer gamePlayer = plugin.getGameManager().getGamePlayer(player);
+        if (gamePlayer == null) {
+            return; // Позволяем обычную телепортацию для игроков не в игре
+        }
+        
         // Обработка порталов в Незер
         if (event.getCause() == PlayerTeleportEvent.TeleportCause.NETHER_PORTAL) {
+            event.setCancelled(true); // Отменяем стандартную телепортацию
+            
             World currentWorld = player.getWorld();
             Location currentLoc = player.getLocation();
             
@@ -243,7 +251,7 @@ public class PlayerListener implements Listener {
                     Location targetLoc = new Location(netherWorld, targetX, targetY, targetZ);
                     targetLoc = findSafeLocation(targetLoc);
                     
-                    event.setTo(targetLoc);
+                    player.teleport(targetLoc);
                     player.sendMessage("§eВы телепортируетесь в Незер Manhunt!");
                     plugin.getLogger().info("Игрок " + player.getName() + " телепортирован в Незер");
                     return;
@@ -262,7 +270,7 @@ public class PlayerListener implements Listener {
                     Location targetLoc = new Location(gameWorld, targetX, targetY, targetZ);
                     targetLoc = findSafeLocation(targetLoc);
                     
-                    event.setTo(targetLoc);
+                    player.teleport(targetLoc);
                     player.sendMessage("§eВы телепортируетесь в обычный мир Manhunt!");
                     plugin.getLogger().info("Игрок " + player.getName() + " телепортирован в обычный мир");
                     return;
@@ -272,6 +280,8 @@ public class PlayerListener implements Listener {
         
         // Проверяем, что это портал в Энд
         if (event.getCause() == PlayerTeleportEvent.TeleportCause.END_PORTAL) {
+            event.setCancelled(true); // Отменяем стандартную телепортацию
+            
             // Получаем наш сгенерированный мир Края
             World endWorld = plugin.getWorldManager().getEndWorld();
             
@@ -283,7 +293,7 @@ public class PlayerListener implements Listener {
                 // Находим безопасное место для спавна
                 endSpawn = findSafeLocation(endSpawn);
                 
-                event.setTo(endSpawn);
+                player.teleport(endSpawn);
                 
                 player.sendMessage("§5Вы телепортируетесь в мир Края Manhunt! Берегитесь дракона!");
                 plugin.getLogger().info("Игрок " + player.getName() + " телепортирован в мир Края плагина");
